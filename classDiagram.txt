@@ -1,0 +1,197 @@
+classDiagram
+    %% ==== ENTIDADES DE DOMINIO ====
+    
+    class Usuario {
+        <<abstract>>
+        -String id
+        -String nombre
+        -String email
+        -String password
+        -Rol rol
+        +login() bool
+        +logout() void
+        +getRol() Rol
+    }
+    
+    class Supervisor {
+        -List~Zona~ zonasGestionadas
+        +generarReporteSemanal() Reporte
+        +gestionarInventario() void
+        +asignarRepartidor() void
+    }
+    
+    class Preventista {
+        -List~Cliente~ carteraClientes
+        +crearPedido() Pedido
+        +registrarCliente() Cliente
+        +buscarCliente() Cliente
+    }
+    
+    class Repartidor {
+        -List~Pedido~ rutaAsignada
+        -Zona zonaTrabajo
+        +confirmarEntrega(Pedido, float) Entrega
+        +obtenerRutaPorZona() List~Pedido~
+    }
+    
+    class Cliente {
+        -String codigo
+        -String nombre
+        -String direccion
+        -Zona zona
+        -List~Pedido~ historialPedidos
+        +estaEnZona(Zona) bool
+        +calcularDeudaTotal() float
+    }
+    
+    class Pedido {
+        -String id
+        -Cliente cliente
+        -Zona zona
+        -List~DetallePedido~ detalles
+        -float total
+        -EstadoPedido estado
+        -String ruta
+        -DateTime fechaCreacion
+        +calcularTotal() float
+        +marcarPendiente() void
+        +marcarEntregado() void
+        +estaPendiente() bool
+    }
+    
+    class DetallePedido {
+        -Producto producto
+        -int cantidad
+        -float precioUnitario
+        +calcularSubtotal() float
+    }
+    
+    class Zona {
+        -String id
+        -String nombre
+        -Coordenada centro
+        -List~Cliente~ clientes
+        +agregarCliente(Cliente) void
+        +eliminarCliente(Cliente) void
+        +estaActiva() bool
+    }
+    
+    class Coordenada {
+        <<valueObject>>
+        -float latitud
+        -float longitud
+        +calcularDistanciaA(Coordenada) float
+        +esValida() bool
+    }
+    
+    class Producto {
+        -String codigo
+        -String nombre
+        -int stock
+        -float precio
+        +descontarStock(int) void
+        +reponerStock(int) void
+        +tieneStock(int) bool
+    }
+    
+    class Entrega {
+        -String id
+        -Pedido pedido
+        -Repartidor repartidor
+        -float valorEstipulado
+        -float valorCobrado
+        -DateTime fechaEntrega
+        +calcularDiferencia() float
+        +esCobroExacto() bool
+    }
+    
+    class Reporte {
+        -DateTime fechaInicio
+        -DateTime fechaFin
+        -float ventasTotales
+        -int pedidosEntregados
+        -Map~Zona, Integer~ pedidosPorZona
+        +generarPDF() String
+    }
+    
+    %% ==== ENUMERACIONES ====
+    
+    class Rol {
+        <<enumeration>>
+        SUPERVISOR
+        PREVENTISTA
+        REPARTIDOR
+    }
+    
+    class EstadoPedido {
+        <<enumeration>>
+        PENDIENTE
+        EN_RUTA
+        ENTREGADO
+        CANCELADO
+    }
+    
+    %% ==== REPOSITORIOS (Interfaces) ====
+    
+    class UsuarioRepository {
+        <<interface>>
+        +findById(String) Usuario
+        +findByEmail(String) Usuario
+        +save(Usuario) void
+    }
+    
+    class PedidoRepository {
+        <<interface>>
+        +findById(String) Pedido
+        +findByZona(Zona) List~Pedido~
+        +findByEstado(EstadoPedido) List~Pedido~
+        +save(Pedido) void
+    }
+    
+    class ClienteRepository {
+        <<interface>>
+        +findByCodigo(String) Cliente
+        +findByZona(Zona) List~Cliente~
+        +save(Cliente) void
+    }
+    
+    class ZonaRepository {
+        <<interface>>
+        +findAll() List~Zona~
+        +findById(String) Zona
+        +save(Zona) void
+        +delete(String) void
+    }
+    
+    %% ==== RELACIONES ====
+    
+    Usuario <|-- Supervisor
+    Usuario <|-- Preventista
+    Usuario <|-- Repartidor
+    Usuario --> Rol : tiene
+    
+    Preventista "1" --> "*" Pedido : crea
+    Repartidor "1" --> "*" Entrega : confirma
+    Supervisor "1" --> "*" Reporte : genera
+    
+    Cliente "1" --> "*" Pedido : recibe
+    Cliente --> Zona : pertenece a
+    Zona --> Coordenada : tiene centro
+    Zona "1" --> "*" Cliente : agrupa
+    
+    Pedido "1" --> "*" DetallePedido : contiene
+    Pedido --> EstadoPedido : tiene
+    Pedido --> Cliente : de
+    Pedido --> Zona : en
+    Pedido "1" --> "0..1" Entrega : tiene
+    
+    DetallePedido --> Producto : refiere
+    Producto "1" --> "*" DetallePedido : aparece en
+    
+    Entrega --> Pedido : confirma
+    Entrega --> Repartidor : realizado por
+    
+    UsuarioRepository ..> Usuario : persiste
+    PedidoRepository ..> Pedido : persiste
+    ClienteRepository ..> Cliente : persiste
+    ZonaRepository ..> Zona : persiste

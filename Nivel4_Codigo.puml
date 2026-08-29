@@ -1,0 +1,113 @@
+@startuml Nivel4_Codigo_BodegaPro
+
+skinparam classAttributeIconSize 0
+top to bottom direction
+
+package "BODEGA Pro - Dominio" {
+
+    enum RolUsuario {
+        SUPERVISOR
+        PREVENTISTA
+        REPARTIDOR
+    }
+
+    enum EstadoPedido {
+        PENDING
+        ROUTE
+        DELIVERED
+    }
+
+    class Usuario {
+        - id: int
+        - username: string
+        - password: string
+        - role: RolUsuario
+        - label: string
+        - avatar: string
+        - active: boolean
+        + iniciarSesion(): boolean
+        + activar(): void
+        + desactivar(): void
+    }
+
+    class Cliente {
+        - id: int
+        - code: string
+        - name: string
+        - address: string
+        - phone: string
+        - sector: string
+        + crear(): void
+        + actualizar(): void
+    }
+
+    class Pedido {
+        - id: int
+        - clientCode: string
+        - clientName: string
+        - address: string
+        - phone: string
+        - sector: string
+        - productId: int
+        - qty: int
+        - total: decimal
+        - collected: decimal
+        - status: EstadoPedido
+        - coordsLat: double
+        - coordsLng: double
+        + crear(): void
+        + tomarRuta(): void
+        + confirmarEntrega(valorCobrado: decimal): void
+    }
+
+    class Producto {
+        - id: int
+        - name: string
+        - price: decimal
+        - stock: int
+        - hidden: boolean
+        - isWater: boolean
+        + agregar(): void
+        + actualizar(): void
+        + ocultar(): void
+        + mostrar(): void
+        + reducirStock(cantidad: int): boolean
+    }
+
+    class Zona {
+        - id: int
+        - name: string
+        - lat: double
+        - lng: double
+        + crear(): void
+        + eliminar(): void
+    }
+
+    class ConteoAgua {
+        - id: int
+        - canastas: int
+        - cajas: int
+        - sueltas: int
+        - perCanasta: int
+        - total: int
+        - userId: int
+        + calcularTotal(): int
+        + guardar(): void
+    }
+
+    Usuario "1" --> "*" Pedido : gestiona
+    Usuario "1" --> "*" ConteoAgua : registra
+
+    Cliente "1" --> "*" Pedido : realiza
+
+    Producto "1" --> "*" Pedido : pertenece
+
+    Zona "1" --> "*" Cliente : agrupa
+    Zona "1" --> "*" Pedido : organiza
+
+    Pedido "*" --> "1" EstadoPedido : posee
+    Usuario "*" --> "1" RolUsuario : tiene
+
+}
+
+@enduml

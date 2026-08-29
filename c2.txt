@@ -1,0 +1,28 @@
+flowchart TD
+    %% Estilos - Paleta Azul Claro y Celeste
+    classDef actor fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,rx:12px,ry:12px
+    classDef container fill:#0284c7,stroke:#0369a1,stroke-width:3px,color:#ffffff,rx:12px,ry:12px
+    classDef ext fill:#f0f9ff,stroke:#38bdf8,stroke-width:2px,color:#0f172a,rx:12px,ry:12px
+
+    subgraph USUARIOS ["👤 USUARIOS DEL SISTEMA"]
+        usuario["👥 <b>Usuarios del Sistema</b><br><i>[Person]</i><br><small>Supervisor, Preventista o Repartidor</small>"]:::actor
+    end
+
+    subgraph BODEGA_PRO ["📦 ECOSISTEMA BODEGA PRO"]
+        spa["📱 <b>Single Page Application (SPA)</b><br><i>[Container: HTML5, Vanilla JS, Tailwind CSS]</i><br><small>Interfaz principal que gestiona el estado (store),<br>las vistas y la lógica de negocio en el navegador</small>"]:::container
+    end
+
+    subgraph EXTERNOS ["🌐 SERVICIOS & SISTEMAS EXTERNOS"]
+        direction LR
+        apiWorker["☁️ <b>Backend Serverless</b><br><i>[External: Cloudflare Worker]</i><br><small>Endpoints REST (/api/*) para<br>persistencia de datos</small>"]:::ext
+        leaflet["🗺️ <b>Leaflet & Teselas Maps</b><br><i>[External: JS Library / Google]</i><br><small>Motor interno para renderizar<br>mapas y zonas dinámicas</small>"]:::ext
+        rutas["🛵 <b>Waze & Google Maps</b><br><i>[External: Apps de Navegación]</i><br><small>Navegación guiada invocada<br>mediante Deep Links</small>"]:::ext
+    end
+
+    %% Relaciones
+    usuario -->|"Interactúa con la interfaz<br><i>[Navegador Web / Táctil]</i>"| spa
+    spa -->|"Sincroniza datos CRUD<br><i>[HTTPS / Fetch API]</i>"| apiWorker
+    spa -->|"Renderiza mapa de zonas<br><i>[JS API]</i>"| leaflet
+    spa -->|"Abre rutas al destino<br><i>[URI Schemes]</i>"| rutas
+
+    linkStyle default stroke:#0284c7,stroke-width:2px,color:#0f172a

@@ -1,0 +1,60 @@
+flowchart TD
+    %% Estilos - Paleta Azul Claro, Océano y Hielo
+    classDef ctrl fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,rx:10px,ry:10px
+    classDef srv fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#ffffff,rx:10px,ry:10px
+    classDef repo fill:#f0f9ff,stroke:#38bdf8,stroke-width:2px,color:#0f172a,rx:10px,ry:10px
+
+    subgraph CAPA_CTRL ["🌐 CAPA CONTROLADORES (REST API)"]
+        direction LR
+        authController["🔑 <b>Auth Controller</b><br><i>[REST]</i><br><small>Endpoints: /login, /logout, /refresh</small>"]:::ctrl
+        pedidoController["📦 <b>Pedido Controller</b><br><i>[REST]</i><br><small>CRUD de pedidos + búsqueda por zona</small>"]:::ctrl
+        clienteController["👤 <b>Cliente Controller</b><br><i>[REST]</i><br><small>CRUD de clientes + zonas</small>"]:::ctrl
+        zonaController["🗺️ <b>Zona Controller</b><br><i>[REST]</i><br><small>CRUD dinámico de zonas</small>"]:::ctrl
+        inventarioController["🏷️ <b>Inventario Controller</b><br><i>[REST]</i><br><small>Gestión de stock y conteo</small>"]:::ctrl
+        entregaController["🚚 <b>Entrega Controller</b><br><i>[REST]</i><br><small>Confirma entrega y recaudo</small>"]:::ctrl
+        reporteController["📊 <b>Reporte Controller</b><br><i>[REST]</i><br><small>Genera reportes semanales</small>"]:::ctrl
+    end
+
+    subgraph CAPA_SRV ["⚙️ CAPA SERVICIOS (LÓGICA DE NEGOCIO)"]
+        direction LR
+        authService["🔐 <b>Auth Service</b><br><i>[Seguridad]</i><br><small>JWT, roles y permisos</small>"]:::srv
+        pedidoService["📦 <b>Pedido Service</b><br><i>[Lógica]</i><br><small>Orquesta creación, validación y estado</small>"]:::srv
+        clienteService["👤 <b>Cliente Service</b><br><i>[Lógica]</i><br><small>Valida unicidad de código y zonas</small>"]:::srv
+        zonaService["🗺️ <b>Zona Service</b><br><i>[Lógica]</i><br><small>Valida coordenadas y zonas</small>"]:::srv
+        inventarioService["🏷️ <b>Inventario Service</b><br><i>[Lógica]</i><br><small>Controla y descuenta stock</small>"]:::srv
+        entregaService["🚚 <b>Entrega Service</b><br><i>[Lógica]</i><br><small>Valida valor cobrado vs estipulado</small>"]:::srv
+    end
+
+    subgraph CAPA_REPO ["🗄️ CAPA REPOSITORIOS (ACCESO A DATOS / DAO)"]
+        direction LR
+        userRepo["👤 <b>Usuario Repository</b><br><i>[DAO]</i><br><small>Acceso a datos de usuarios</small>"]:::repo
+        pedidoRepo["📦 <b>Pedido Repository</b><br><i>[DAO]</i><br><small>Acceso a datos de pedidos</small>"]:::repo
+        clienteRepo["👤 <b>Cliente Repository</b><br><i>[DAO]</i><br><small>Acceso a datos de clientes</small>"]:::repo
+        zonaRepo["🗺️ <b>Zona Repository</b><br><i>[DAO]</i><br><small>Acceso a datos de zonas</small>"]:::repo
+        inventarioRepo["🏷️ <b>Inventario Repository</b><br><i>[DAO]</i><br><small>Acceso a datos de productos</small>"]:::repo
+    end
+
+    %% Relaciones: Controladores -> Servicios / Repos
+    authController -->|"Delega autenticación"| authService
+    pedidoController -->|"Orquesta pedido"| pedidoService
+    clienteController -->|"Orquesta cliente"| clienteService
+    zonaController -->|"Orquesta zona"| zonaService
+    inventarioController -->|"Orquesta inventario"| inventarioService
+    entregaController -->|"Confirma entrega"| entregaService
+    reporteController -->|"Extrae datos"| pedidoRepo
+
+    %% Relaciones: Servicios -> Repos / Servicios
+    authService -->|"Consulta usuario"| userRepo
+    pedidoService -->|"Persiste"| pedidoRepo
+    pedidoService -->|"Consulta"| clienteRepo
+    pedidoService -->|"Descuenta stock"| inventarioService
+    clienteService -->|"Persiste"| clienteRepo
+    clienteService -->|"Valida zona"| zonaRepo
+    zonaService -->|"Persiste"| zonaRepo
+    inventarioService -->|"Persiste"| inventarioRepo
+    entregaService -->|"Actualiza estado"| pedidoRepo
+
+    style CAPA_CTRL fill:#f0f9ff,stroke:#bae6fd,color:#0369a1
+    style CAPA_SRV fill:#f0f9ff,stroke:#bae6fd,color:#0369a1
+    style CAPA_REPO fill:#f0f9ff,stroke:#bae6fd,color:#0369a1
+    linkStyle default stroke:#0284c7,stroke-width:2px,color:#0f172a

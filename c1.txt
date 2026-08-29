@@ -1,0 +1,30 @@
+flowchart TD
+    %% Estilos - Paleta Azul Claro y Celeste
+    classDef actor fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,rx:12px,ry:12px
+    classDef core fill:#0284c7,stroke:#0369a1,stroke-width:3px,color:#ffffff,rx:12px,ry:12px
+    classDef ext fill:#f0f9ff,stroke:#38bdf8,stroke-width:2px,color:#0f172a,rx:12px,ry:12px
+
+    subgraph ACTORES ["👤 USUARIOS / ACTORES"]
+        direction LR
+        sup["👨‍💼 <b>Supervisor</b><br><i>[Person]</i><br><small>Administra usuarios, inventario,<br>zonas y reportes</small>"]:::actor
+        prev["📋 <b>Preventista</b><br><i>[Person]</i><br><small>Registra clientes y pedidos<br>validando stock</small>"]:::actor
+        rep["🛵 <b>Repartidor</b><br><i>[Person]</i><br><small>Asume pedidos, navega<br>y confirma recaudos</small>"]:::actor
+    end
+
+    bodega["📦 <b>BODEGA Pro</b><br><i>[Software System]</i><br><small>Sistema centralizado de gestión logística,<br>ruteo y ventas por zonas</small>"]:::core
+
+    subgraph EXTERNOS ["🌐 SISTEMAS EXTERNOS"]
+        direction LR
+        apiWorker["☁️ <b>API de Bodega</b><br><i>[External System]</i><br><small>Cloudflare Worker<br>(bodega-api...workers.dev)</small>"]:::ext
+        mapas["🗺️ <b>Google Maps / Waze</b><br><i>[External System]</i><br><small>Navegación GPS y<br>teselas de mapa</small>"]:::ext
+    end
+
+    %% Relaciones de arriba hacia abajo
+    sup -->|"Gestiona negocio e inventario<br><i>[Navegador Web]</i>"| bodega
+    prev -->|"Gestiona clientes y crea pedidos<br><i>[Navegador Web]</i>"| bodega
+    rep -->|"Ejecuta entregas y recaudos<br><i>[Navegador Web / Móvil]</i>"| bodega
+
+    bodega -->|"Envía y recibe datos (JSON)<br><i>[HTTPS / REST]</i>"| apiWorker
+    bodega -->|"Redirige para ruteo / teselas<br><i>[HTTPS]</i>"| mapas
+
+    linkStyle default stroke:#0284c7,stroke-width:2px,color:#0f172a
