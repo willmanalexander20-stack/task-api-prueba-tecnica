@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BODEGA - Sistema de Gestión</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+.sidebar-active { background-color: #3b82f6; color: white; border-right: 4px solid #1d4ed8; }
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+#map { height: 100%; min-height: 350px; width: 100%; border-radius: 0.5rem; z-index: 1; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.login-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%); background-size: 200% 200%; animation: gradientMove 10s ease infinite; }
+@keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.shake { animation: shake 0.4s ease-in-out; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+.modal-panel { animation: fadeIn 0.25s ease-in-out; }
+@media (max-width: 767px) { #sidebar.mobile-open { display: flex !important; position: absolute; top: 0; bottom: 0; left: 0; z-index: 45; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); animation: slideIn 0.25s ease-out; } }
+@keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+</style>
+</head>
+<body class="text-gray-800 h-screen overflow-hidden">
+<!-- LOGIN -->
+<div id="login-screen" class="fixed inset-0 z-[9999] login-gradient flex items-center justify-center p-4 overflow-y-auto">
+<div class="w-full max-w-4xl bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/20">
+<div class="md:w-1/2 p-6 sm:p-10 text-white flex flex-col justify-center">
+<div class="flex items-center gap-3 mb-6"><div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center"><i class="fa-solid fa-warehouse text-2xl"></i></div><h1 class="font-bold text-2xl tracking-tight">BODEGA<span class="text-cyan-300">Pro</span></h1></div>
+<h2 class="text-xl font-bold mb-4">Gestión por Zonas de Entrega</h2>
+<ul class="space-y-3 text-sm text-blue-100">
+<li><i class="fa-solid fa-circle-check text-cyan-300 mr-2"></i> Zonas dinámicas (crea y elimina)</li>
+<li><i class="fa-solid fa-circle-check text-cyan-300 mr-2"></i> Buscador Inteligente de Clientes</li>
+<li><i class="fa-solid fa-circle-check text-cyan-300 mr-2"></i> Valor Cobrado por Repartidor</li>
+</ul>
+</div>
+<div class="md:w-1/2 bg-white p-6 sm:p-10 flex flex-col justify-center">
+<h3 class="text-xl font-bold mb-2">Iniciar Sesión</h3>
+<div id="login-error" class="hidden mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">Error</div>
+<form onsubmit="handleLogin(event)" class="space-y-4">
+<div><input type="text" id="login-username" required placeholder="Usuario" class="w-full pl-3 py-2 border rounded-lg"></div>
+<div><input type="password" id="login-password" required placeholder="Contraseña" class="w-full pl-3 py-2 border rounded-lg"></div>
+<button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold">Entrar</button>
+</form>
+<div class="mt-6 grid grid-cols-3 gap-2 text-xs text-center">
+<button onclick="quickLogin('supervisor')" class="p-2 border rounded hover:bg-gray-50">Supervisor</button>
+<button onclick="quickLogin('preventista')" class="p-2 border rounded hover:bg-gray-50">Preventista</button>
+<button onclick="quickLogin('repartidor')" class="p-2 border rounded hover:bg-gray-50">Repartidor</button>
+</div>
+</div>
+</div>
+</div>
+<!-- APP -->
+<div id="app-container" class="hidden h-screen flex overflow-hidden relative">
+<div id="mobile-backdrop" class="hidden fixed inset-0 bg-black/40 z-40 md:hidden" onclick="closeMobileMenu()"></div>
+<aside id="sidebar" class="w-64 bg-white shadow-xl flex-col hidden md:flex z-20">
+<div class="p-6 border-b font-bold text-xl text-blue-600">BODEGA<span class="text-gray-800">Pro</span></div>
+<nav class="flex-1 py-6 space-y-1 px-3 overflow-y-auto">
+<button onclick="switchView('dashboard')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 flex items-center gap-3 sidebar-active" data-target="dashboard"><i class="fa-solid fa-chart-line w-5"></i> Dashboard</button>
+<button onclick="switchView('orders')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 flex items-center gap-3" data-target="orders"><i class="fa-solid fa-box-open w-5"></i> Pedidos</button>
+<button onclick="switchView('customers')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 flex items-center gap-3" data-target="customers"><i class="fa-solid fa-address-book w-5"></i> Clientes</button>
+<button onclick="switchView('inventory')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 hidden items-center gap-3" data-target="inventory" id="nav-inventory"><i class="fa-solid fa-warehouse w-5"></i> Inventario</button>
+<button onclick="switchView('map')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 flex items-center gap-3" data-target="map"><i class="fa-solid fa-map-location-dot w-5"></i> Mapa</button>
+<button onclick="switchView('users')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 hidden items-center gap-3" data-target="users" id="nav-users"><i class="fa-solid fa-users-gear w-5"></i> Usuarios</button>
+<button onclick="switchView('zonas')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 hidden items-center gap-3" data-target="zonas" id="nav-zonas"><i class="fa-solid fa-map-pin w-5"></i> Zonas</button>
+</nav>
+<div class="p-4 border-t">
+<div class="flex items-center gap-3 mb-2">
+<div id="user-avatar" class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs">👤</div>
+<div class="text-xs"><p id="user-name" class="font-bold truncate">User</p><p id="user-role" class="text-gray-500 uppercase">Rol</p></div>
+</div>
+<button onclick="logout()" class="w-full text-xs text-red-500 hover:underline">Cerrar Sesión</button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+<header class="bg-white shadow-sm p-4 flex justify-between md:hidden z-10">
+<span class="font-bold">BODEGA Pro</span>
+<button onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
+</header>
+<div id="content-area" class="flex-1 overflow-y-auto p-4 md:p-6 relative">
+<!-- DASHBOARD -->
+<section id="view-dashboard" class="fade-in space-y-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm border"><p class="text-xs text-gray-500">Ventas</p><h3 id="stat-sales" class="text-xl font-bold">$0</h3></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border"><p class="text-xs text-gray-500">Pendientes</p><h3 id="pending-count" class="text-xl font-bold">0</h3></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border"><p class="text-xs text-gray-500">Clientes</p><h3 id="stat-customers" class="text-xl font-bold">0</h3></div>
+<div class="bg-white p-4 rounded-xl shadow-sm border"><p class="text-xs text-gray-500">Entregados</p><h3 id="stat-delivered" class="text-xl font-bold">0</h3></div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div class="bg-white p-6 rounded-xl shadow-sm border">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-bold">Reporte Semanal</h3>
+<div class="flex gap-2">
+<button onclick="resetWeekManual()" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm supervisor-only hover:bg-red-700" title="Reiniciar semana"><i class="fa-solid fa-rotate-right mr-2"></i>Reiniciar</button>
+<button onclick="generatePDF()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm supervisor-only"><i class="fa-solid fa-file-pdf mr-2"></i>Descargar PDF</button>
+</div>
+</div>
+<div class="h-64"><canvas id="salesChart"></canvas></div>
+</div>
+<div class="bg-white p-6 rounded-xl shadow-sm border">
+<h3 class="font-bold mb-4">Actividad Reciente</h3>
+<div id="activity-feed" class="space-y-2 max-h-64 overflow-y-auto"></div>
+</div>
+</div>
+</section>
+<!-- PEDIDOS -->
+<section id="view-orders" class="hidden fade-in space-y-4">
+<div class="flex justify-between items-center flex-wrap gap-2">
+<h2 class="text-2xl font-bold">Pedidos por Zona</h2>
+<div class="flex gap-2">
+<select id="sector-filter" onchange="filterOrders()" class="border rounded-lg px-3 py-2 text-sm">
+<option value="all">Todas las Zonas</option>
+</select>
+<button onclick="openNewOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" id="btn-new-order"><i class="fa-solid fa-plus mr-2"></i>Nuevo Pedido</button>
+</div>
+</div>
+<div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+<table class="w-full text-left text-sm min-w-[800px]">
+<thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+<tr><th class="p-3">ID/Cliente</th><th class="p-3">Zona</th><th class="p-3">Total</th><th class="p-3">Estado</th><th class="p-3">Ruta</th><th class="p-3 text-right">Acción</th></tr>
+</thead>
+<tbody id="orders-table-body" class="divide-y"></tbody>
+</table>
+</div>
+</section>
+<!-- CLIENTES -->
+<section id="view-customers" class="hidden fade-in space-y-4">
+<div class="flex justify-between items-center">
+<h2 class="text-2xl font-bold">Directorio de Clientes</h2>
+<button onclick="openCustomerModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" id="btn-new-customer"><i class="fa-solid fa-user-plus mr-2"></i>Nuevo Cliente</button>
+</div>
+<div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+<div class="p-3 border-b">
+<input type="text" id="customer-search" oninput="renderCustomers()" placeholder="Buscar cliente..." class="w-full border rounded-lg px-3 py-2 text-sm">
+</div>
+<table class="w-full text-left text-sm min-w-[700px]">
+<thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+<tr><th class="p-3">Código</th><th class="p-3">Nombre</th><th class="p-3">Dirección</th><th class="p-3">Zona</th></tr>
+</thead>
+<tbody id="customers-table-body" class="divide-y"></tbody>
+</table>
+</div>
+</section>
+<!-- INVENTARIO -->
+<section id="view-inventory" class="hidden fade-in space-y-4">
+<div class="flex justify-between items-center">
+<h2 class="text-2xl font-bold">Inventario</h2>
+<button onclick="openProductModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus mr-2"></i>Producto</button>
+</div>
+<div class="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+<h3 class="font-bold text-blue-800 mb-2"><i class="fa-solid fa-droplet"></i> Conteo Agua (Stock: <span id="w-stock-sync">0</span>)</h3>
+<div class="flex gap-2 flex-wrap">
+<input type="number" id="w-canastas" placeholder="Canastas" class="border p-2 rounded w-24" oninput="calcWater()">
+<input type="number" id="w-cajas" placeholder="Cajas" class="border p-2 rounded w-24" oninput="calcWater()">
+<input type="number" id="w-sueltas" placeholder="Sueltas" class="border p-2 rounded w-24" oninput="calcWater()">
+<span class="py-2 font-bold">Total: <span id="w-total">0</span></span>
+<button onclick="saveWaterCount()" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="inventory-grid"></div>
+</section>
+<!-- MAPA -->
+<section id="view-map" class="hidden fade-in h-full flex flex-col">
+<div class="h-full bg-white rounded-xl shadow-sm border relative min-h-[400px]">
+<div id="map" class="w-full h-full z-0"></div>
+</div>
+</section>
+<!-- USUARIOS -->
+<section id="view-users" class="hidden fade-in space-y-4">
+<h2 class="text-2xl font-bold">Usuarios</h2>
+<div class="bg-white p-4 rounded-xl border" id="users-list"></div>
+</section>
+<!-- ZONAS -->
+<section id="view-zonas" class="hidden fade-in space-y-4">
+<div class="flex justify-between items-center">
+<h2 class="text-2xl font-bold">Zonas de Entrega</h2>
+<button onclick="openZoneModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus mr-2"></i>Nueva Zona</button>
+</div>
+<p class="text-xs text-gray-500">Las zonas que agregues aquí aparecerán automáticamente en pedidos, clientes y filtros.</p>
+<div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+<table class="w-full text-left text-sm min-w-[500px]">
+<thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+<tr><th class="p-3">Nombre de la Zona</th><th class="p-3">Coordenadas (Mapa)</th><th class="p-3 text-right">Acción</th></tr>
+</thead>
+<tbody id="zones-table-body" class="divide-y"></tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- MODAL CLIENTE -->
+<div id="customer-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6">
+<h3 class="font-bold text-lg mb-4">Datos del Cliente</h3>
+<form onsubmit="handleSaveCustomer(event)" class="space-y-3">
+<input type="text" id="cust-code" placeholder="Código" required class="w-full border p-2 rounded">
+<input type="text" id="cust-name" placeholder="Nombre" required class="w-full border p-2 rounded">
+<input type="text" id="cust-address" placeholder="Dirección" required class="w-full border p-2 rounded">
+<input type="tel" id="cust-phone" placeholder="Teléfono" class="w-full border p-2 rounded">
+<select id="cust-sector" class="w-full border p-2 rounded"></select>
+<div class="flex gap-2 pt-2">
+<button type="button" onclick="closeModal('customer-modal')" class="flex-1 border py-2 rounded">Cancelar</button>
+<button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded">Guardar</button>
+</div>
+</form>
+</div>
+</div>
+<!-- MODAL PEDIDO CON BUSCADOR -->
+<div id="order-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+<h3 class="font-bold text-lg mb-4">Nuevo Pedido</h3>
+<form onsubmit="handleCreateOrder(event)" class="space-y-3">
+<div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+<label class="block text-xs font-bold text-blue-800 mb-1"><i class="fa-solid fa-magnifying-glass"></i> BUSCAR CLIENTE</label>
+<input type="text" id="order-client-search" oninput="filterCustomerSelect()" placeholder="Escribe nombre..." class="w-full border p-2 rounded text-sm mb-2">
+<select id="new-customer-select" onchange="fillOrderFromCustomer()" class="w-full border p-2 rounded text-sm h-24"></select>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<input type="text" id="new-client" placeholder="Código" required class="border p-2 rounded text-sm">
+<input type="text" id="new-client-name" placeholder="Nombre" required class="border p-2 rounded text-sm">
+</div>
+<input type="text" id="new-client-address" placeholder="Dirección" required class="w-full border p-2 rounded text-sm">
+<input type="tel" id="new-client-phone" placeholder="Teléfono" class="w-full border p-2 rounded text-sm">
+<select id="new-sector" class="w-full border p-2 rounded text-sm"></select>
+<select id="new-product" onchange="updatePricePreview()" class="w-full border p-2 rounded text-sm"></select>
+<div class="grid grid-cols-2 gap-2">
+<input type="number" id="new-qty" value="1" min="1" oninput="updatePricePreview()" class="border p-2 rounded text-sm">
+<input type="text" id="new-price" readonly class="bg-gray-100 border p-2 rounded text-sm">
+</div>
+<div class="flex gap-2 pt-2">
+<button type="button" onclick="closeModal('order-modal')" class="flex-1 border py-2 rounded">Cancelar</button>
+<button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded">Crear</button>
+</div>
+</form>
+</div>
+</div>
+<!-- MODAL PRODUCTO -->
+<div id="product-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6">
+<h3 class="font-bold text-lg mb-4" id="product-modal-title">Producto</h3>
+<form onsubmit="handleSaveProduct(event)" class="space-y-3">
+<input type="hidden" id="prod-edit-id">
+<input type="text" id="prod-name" placeholder="Nombre" required class="w-full border p-2 rounded">
+<div class="grid grid-cols-2 gap-2">
+<input type="number" id="prod-price" step="0.01" placeholder="Precio" required class="border p-2 rounded">
+<input type="number" id="prod-stock" placeholder="Stock" required class="border p-2 rounded">
+</div>
+<label class="flex items-center gap-2 text-sm"><input type="checkbox" id="prod-hidden"> Ocultar</label>
+<div class="flex gap-2 pt-2">
+<button type="button" onclick="closeModal('product-modal')" class="flex-1 border py-2 rounded">Cancelar</button>
+<button type="submit" class="flex-1 bg-green-600 text-white py-2 rounded">Guardar</button>
+</div>
+</form>
+</div>
+</div>
+<!-- MODAL CONFIRMAR ENTREGA CON VALOR COBRADO -->
+<div id="deliver-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-sm p-6">
+<h3 class="font-bold text-lg mb-4"><i class="fa-solid fa-hand-holding-dollar text-green-600"></i> Confirmar Entrega</h3>
+<div class="bg-gray-50 rounded p-3 mb-3 text-sm">
+<p class="font-bold" id="deliver-client"></p>
+<p class="text-xs text-gray-500" id="deliver-detail"></p>
+</div>
+<div class="mb-3">
+<label class="text-xs text-gray-500">Valor estipulado</label>
+<input type="text" id="deliver-total" readonly class="w-full bg-gray-100 border rounded p-2 font-bold">
+</div>
+<div class="mb-3">
+<label class="text-xs text-gray-500">💵 Valor cobrado al cliente</label>
+<input type="number" id="deliver-collected" min="0" step="100" class="w-full border-2 border-green-300 rounded p-3 text-lg font-bold text-center">
+<p class="text-[10px] text-gray-400 mt-1">Escribe el valor real recibido.</p>
+</div>
+<div class="flex gap-2">
+<button type="button" onclick="closeModal('deliver-modal')" class="flex-1 border py-2 rounded">Cancelar</button>
+<button type="button" onclick="confirmDelivery()" class="flex-1 bg-green-600 text-white py-2 rounded font-bold">Confirmar</button>
+</div>
+</div>
+</div>
+<!-- MODAL NUEVA ZONA -->
+<div id="zone-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6">
+<h3 class="font-bold text-lg mb-4"><i class="fa-solid fa-map-pin text-blue-600 mr-2"></i>Nueva Zona de Entrega</h3>
+<form onsubmit="handleSaveZone(event)" class="space-y-3">
+<div>
+<label class="text-xs text-gray-500">Nombre de la zona *</label>
+<input type="text" id="zone-name" placeholder="Ej: Bosa Nova" required class="w-full border p-2 rounded">
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-xs text-gray-500">Latitud (opcional)</label>
+<input type="number" step="any" id="zone-lat" placeholder="4.6350" class="w-full border p-2 rounded">
+</div>
+<div>
+<label class="text-xs text-gray-500">Longitud (opcional)</label>
+<input type="number" step="any" id="zone-lng" placeholder="-74.1350" class="w-full border p-2 rounded">
+</div>
+</div>
+<p class="text-[10px] text-gray-400">Si dejas las coordenadas vacías, se usará el centro de Bosa por defecto.</p>
+<div class="flex gap-2 pt-2">
+<button type="button" onclick="closeModal('zone-modal')" class="flex-1 border py-2 rounded">Cancelar</button>
+<button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded">Crear Zona</button>
+</div>
+</form>
+</div>
+</div>
+<!-- 🛑 AQUÍ TERMINA EL BLOQUE 1 - El siguiente bloque inicia con <script> -->
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ==================== CONFIGURACIÓN API ====================
+const API_URL = "https://bodega-api.elkin-gomezggu.workers.dev";
+const BOGOTA_CENTER = [4.6350, -74.1350];
+let SECTOR_COORDS = {};
+
+let store = { 
+  currentUser: null, orders: [], inventory: [], users: [], 
+  customers: [], waterCounts: [], sectors: [], 
+  gps: { driverLat: 4.6350, driverLng: -74.1350 } 
+};
+let map, markerDriver, deliverOrderId = null, chartInstance = null;
+let expandedOrderId = null, lastAutoResetKey = '';
+
+async function api(endpoint, method = 'GET', data = null) {
+  try {
+    const opts = { method, headers: {'Content-Type': 'application/json'} };
+    if (data) opts.body = JSON.stringify(data);
+    const res = await fetch(`${API_URL}${endpoint}`, opts);
+    return await res.json();
+  } catch(e) { console.error(e); return null; }
+}
+
+// ==================== RUTAS ====================
+function googleMapsRouteUrl(lat, lng) { return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
+function wazeRouteUrl(lat, lng) { return `https://www.waze.com/ul?ll=${lat}%2C${lng}&navigate=yes`; }
+function openGoogleRoute(id) { const o = store.orders.find(x => x.id === id); if (o) window.open(googleMapsRouteUrl(o.coords_lat, o.coords_lng), '_blank'); }
+function openWazeRoute(id) { const o = store.orders.find(x => x.id === id); if (o) window.open(wazeRouteUrl(o.coords_lat, o.coords_lng), '_blank'); }
+function openExternalGoogle() { window.open(`https://www.google.com/maps/@${BOGOTA_CENTER[0]},${BOGOTA_CENTER[1]},12z`, '_blank'); }
+function openExternalWazeCenter() { window.open(wazeRouteUrl(BOGOTA_CENTER[0], BOGOTA_CENTER[1]), '_blank'); }
+
+// ==================== LOGIN ====================
+async function handleLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById('login-username').value;
+  const p = document.getElementById('login-password').value;
+  const res = await api('/api/login', 'POST', {username: u, password: p});
+  if (res && res.success) {
+    store.currentUser = res.user;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-container').classList.remove('hidden');
+    document.getElementById('app-container').classList.add('flex');
+    document.getElementById('user-name').innerText = res.user.label;
+    document.getElementById('user-role').innerText = res.user.role;
+    document.getElementById('user-avatar').innerHTML = `<span>${res.user.avatar || '👤'}</span>`;
+    applyPermissions();
+    await initApp();
+  } else {
+    document.getElementById('login-error').classList.remove('hidden');
+  }
+}
+function quickLogin(r) {
+  const c = {supervisor:['admin','admin123'], preventista:['venta','venta123'], repartidor:['ruta','ruta123']};
+  document.getElementById('login-username').value = c[r][0];
+  document.getElementById('login-password').value = c[r][1];
+  handleLogin(new Event('submit'));
+}
+function logout() { location.reload(); }
+
+// ==================== INICIO APP ====================
+async function initApp() {
+  const [o, i, u, c, w, s] = await Promise.all([
+    api('/api/orders'), api('/api/inventory'), api('/api/users'),
+    api('/api/customers'), api('/api/water-counts'), api('/api/sectors')
+  ]);
+  store.orders = o || [];
+  store.inventory = i || [];
+  store.users = u || [];
+  store.customers = c || [];
+  store.waterCounts = w || [];
+  store.sectors = s || [];
+  SECTOR_COORDS = {};
+  store.sectors.forEach(z => { 
+    SECTOR_COORDS[z.name] = [parseFloat(z.lat) || BOGOTA_CENTER[0], parseFloat(z.lng) || BOGOTA_CENTER[1]]; 
+  });
+  loadSectorSelects();
+  await purgeOldOrders();
+  renderAll();
+  initChart();
+  initMap();
+  startAutoResetTimer();
+}
+
+// ==================== PERMISOS ====================
+function applyPermissions() {
+  const r = store.currentUser.role;
+  const sup = r === 'supervisor';
+  document.getElementById('nav-inventory').style.display = sup ? 'flex' : 'none';
+  document.getElementById('nav-users').style.display = sup ? 'flex' : 'none';
+  document.getElementById('nav-zonas').style.display = sup ? 'flex' : 'none';
+  document.getElementById('btn-new-order').style.display = (sup || r === 'preventista') ? 'block' : 'none';
+  document.getElementById('btn-new-customer').style.display = (sup || r === 'preventista') ? 'block' : 'none';
+  document.querySelectorAll('.supervisor-only').forEach(el => el.style.display = sup ? 'inline-block' : 'none');
+}
+
+// ==================== NAVEGACIÓN ====================
+function switchView(v) {
+  if ((v === 'inventory' || v === 'users' || v === 'zonas') && store.currentUser.role !== 'supervisor') { 
+    alert('Acceso restringido. Solo el Supervisor.'); return; 
+  }
+  document.querySelectorAll('section').forEach(el => el.classList.add('hidden'));
+  document.getElementById(`view-${v}`).classList.remove('hidden');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('sidebar-active'));
+  const btn = document.querySelector(`[data-target="${v}"]`); 
+  if (btn) btn.classList.add('sidebar-active');
+  if (v === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
+  closeMobileMenu();
+}
+function toggleMobileMenu() { 
+  document.getElementById('sidebar').classList.toggle('mobile-open'); 
+  document.getElementById('mobile-backdrop').classList.toggle('hidden'); 
+}
+function closeMobileMenu() { 
+  document.getElementById('sidebar').classList.remove('mobile-open'); 
+  document.getElementById('mobile-backdrop').classList.add('hidden'); 
+}
+
+// ==================== ZONAS DINÁMICAS ====================
+function loadSectorSelects() {
+  [{id:'sector-filter', all:true}, {id:'cust-sector', all:false}, {id:'new-sector', all:false}].forEach(s => {
+    const el = document.getElementById(s.id);
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = s.all ? '<option value="all">Todas las Zonas</option>' : '';
+    store.sectors.forEach(z => { el.innerHTML += `<option value="${z.name}">${z.name}</option>`; });
+    if (current) el.value = current;
+  });
+}
+function renderZones() {
+  const tb = document.getElementById('zones-table-body');
+  if (!tb) return;
+  tb.innerHTML = '';
+  store.sectors.forEach(z => {
+    tb.innerHTML += `<tr>
+      <td class="p-3 font-bold">${z.name}</td>
+      <td class="p-3 text-xs text-gray-500">${z.lat || '—'}, ${z.lng || '—'}</td>
+      <td class="p-3 text-right"><button onclick="deleteZone(${z.id})" class="text-red-500 text-xs font-bold"><i class="fa-solid fa-trash mr-1"></i>Eliminar</button></td>
+    </tr>`;
+  });
+}
+function openZoneModal() { openModal('zone-modal'); }
+async function handleSaveZone(e) {
+  e.preventDefault();
+  const name = document.getElementById('zone-name').value.trim();
+  const lat = parseFloat(document.getElementById('zone-lat').value);
+  const lng = parseFloat(document.getElementById('zone-lng').value);
+  if (!name) return;
+  const res = await api('/api/sectors', 'POST', { name, lat: isNaN(lat) ? null : lat, lng: isNaN(lng) ? null : lng });
+  if (res && res.success) {
+    const s = await api('/api/sectors');
+    store.sectors = s || [];
+    SECTOR_COORDS = {};
+    store.sectors.forEach(z => { SECTOR_COORDS[z.name] = [parseFloat(z.lat) || BOGOTA_CENTER[0], parseFloat(z.lng) || BOGOTA_CENTER[1]]; });
+    loadSectorSelects(); renderZones(); closeModal('zone-modal');
+    document.getElementById('zone-name').value = '';
+    document.getElementById('zone-lat').value = '';
+    document.getElementById('zone-lng').value = '';
+    alert(`Zona "${name}" creada correctamente`);
+  } else { alert('Error: esa zona ya existe'); }
+}
+async function deleteZone(id) {
+  if (!confirm('¿Eliminar esta zona? Los pedidos existentes conservarán su zona.')) return;
+  await api(`/api/sectors/${id}`, 'DELETE');
+  const s = await api('/api/sectors');
+  store.sectors = s || [];
+  SECTOR_COORDS = {};
+  store.sectors.forEach(z => { SECTOR_COORDS[z.name] = [parseFloat(z.lat) || BOGOTA_CENTER[0], parseFloat(z.lng) || BOGOTA_CENTER[1]]; });
+  loadSectorSelects(); renderZones();
+}
+
+// ==================== FECHAS Y REINICIO SEMANAL ====================
+async function getInternetNow() {
+  try {
+    const res = await fetch(API_URL, { method: 'HEAD' });
+    const d = res.headers.get('Date');
+    if (d) return new Date(d);
+  } catch (e) { console.error(e); }
+  return new Date();
+}
+function bogotaNow(now) { return new Date(now.toLocaleString('en-US', { timeZone: 'America/Bogota' })); }
+function weekStartEpoch(now) {
+  const b = bogotaNow(now);
+  const daysSinceMonday = (b.getDay() + 6) % 7;
+  const monday = new Date(b.getFullYear(), b.getMonth(), b.getDate() - daysSinceMonday);
+  return Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate(), 5, 0, 0);
+}
+function orderDate(o) {
+  if (!o.created_at) return 0;
+  return new Date(String(o.created_at).replace(' ', 'T') + 'Z').getTime();
+}
+async function purgeWeek(motivo) {
+  const r = await api('/api/orders', 'DELETE');
+  if (!r || !r.success) { for (const o of store.orders) { await api(`/api/orders/${o.id}`, 'DELETE'); } }
+  await api('/api/water-counts', 'DELETE');
+  const [o, w] = await Promise.all([api('/api/orders'), api('/api/water-counts')]);
+  store.orders = o || [];
+  store.waterCounts = w || [];
+  renderAll();
+  initChart();
+  addActivity(`Reporte semanal reiniciado (${motivo})`, 'indigo');
+}
+async function purgeOldOrders() {
+  const now = await getInternetNow();
+  const ws = weekStartEpoch(now);
+  const old = store.orders.filter(o => orderDate(o) && orderDate(o) < ws);
+  if (!old.length) return;
+  for (const o of old) { await api(`/api/orders/${o.id}`, 'DELETE'); }
+  const o2 = await api('/api/orders');
+  store.orders = o2 || [];
+}
+async function resetWeekManual() {
+  if (!confirm('¿Reiniciar el reporte semanal?\nSe eliminarán los pedidos y conteos de agua de la semana.')) return;
+  await purgeWeek('botón Reiniciar');
+  alert('Semana reiniciada: reporte en cero.');
+}
+function startAutoResetTimer() {
+  const check = async () => {
+    if (!store.currentUser) return;
+    const now = await getInternetNow();
+    const b = bogotaNow(now);
+    if (b.getDay() === 0 && b.getHours() === 23 && b.getMinutes() === 59) {
+      const key = 'auto-' + b.toDateString();
+      if (lastAutoResetKey !== key) {
+        lastAutoResetKey = key;
+        await purgeWeek('automático domingo 11:59 p.m.');
+      }
+    }
+  };
+  setInterval(check, 15000);
+}
+
+// ==================== ACTIVIDAD Y ESTADÍSTICAS ====================
+function addActivity(msg, color) {
+  const feed = document.getElementById('activity-feed');
+  if (!feed) return;
+  const div = document.createElement('div');
+  div.className = 'flex items-start gap-3 p-2 rounded hover:bg-gray-50 transition';
+  div.innerHTML = `
+    <div class="mt-1.5 w-2 h-2 rounded-full bg-${color || 'blue'}-500 shrink-0"></div>
+    <div class="min-w-0">
+      <p class="text-sm text-gray-700 break-words">${msg}</p>
+      <p class="text-xs text-gray-400">${new Date().toLocaleTimeString('es-ES')}</p>
+    </div>`;
+  feed.prepend(div);
+}
+function renderAll() { 
+  renderOrders(); renderInventory(); renderCustomers(); 
+  renderUsers(); renderZones(); updateStats(); 
+}
+function updateStats() {
+  document.getElementById('stat-sales').innerText = '$' + store.orders.reduce((a,b)=>a+b.total,0).toFixed(2);
+  document.getElementById('pending-count').innerText = store.orders.filter(o=>o.status==='pending').length;
+  document.getElementById('stat-delivered').innerText = store.orders.filter(o=>o.status==='delivered').length;
+  document.getElementById('stat-customers').innerText = store.customers.length;
+  const w = store.inventory.find(p=>p.is_water);
+  if (w) document.getElementById('w-stock-sync').innerText = w.stock;
+}
+
+// ==================== CLIENTES ====================
+function renderCustomers() {
+  const tb = document.getElementById('customers-table-body');
+  tb.innerHTML = '';
+  const q = (document.getElementById('customer-search').value || '').toLowerCase();
+  store.customers.filter(c => !q || (c.name||'').toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q) || (c.code||'').toLowerCase().includes(q)).forEach(c => {
+    tb.innerHTML += `<tr><td class="p-3 font-mono text-xs">${c.code}</td><td class="p-3 font-bold">${c.name}</td><td class="p-3 text-xs">${c.address}</td><td class="p-3"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px]">${c.sector}</span></td></tr>`;
+  });
+}
+function openCustomerModal() {
+  let maxN = 0; 
+  store.customers.forEach(c => { const m = parseInt((c.code||'').replace(/\D/g,'')); if (m > maxN) maxN = m; });
+  document.getElementById('cust-code').value = `CLI-${String(maxN+1).padStart(3,'0')}`;
+  document.getElementById('cust-name').value = '';
+  document.getElementById('cust-address').value = '';
+  document.getElementById('cust-phone').value = '';
+  openModal('customer-modal');
+}
+async function handleSaveCustomer(e) {
+  e.preventDefault();
+  const payload = {
+    code: document.getElementById('cust-code').value, 
+    name: document.getElementById('cust-name').value, 
+    address: document.getElementById('cust-address').value, 
+    phone: document.getElementById('cust-phone').value, 
+    sector: document.getElementById('cust-sector').value
+  };
+  const res = await api('/api/customers', 'POST', payload);
+  if (res && res.success) {
+    const c = await api('/api/customers'); if (c) store.customers = c;
+    renderCustomers(); updateStats(); closeModal('customer-modal');
+    addActivity(`Cliente ${payload.name} agregado al directorio`, 'green');
+  } else { alert('Error al guardar el cliente (¿código duplicado?)'); }
+}
+
+// ==================== PEDIDOS ====================
+function toggleClientDetail(id) { expandedOrderId = expandedOrderId === id ? null : id; renderOrders(); }
+function renderOrders() {
+  const tb = document.getElementById('orders-table-body');
+  tb.innerHTML = '';
+  const filter = document.getElementById('sector-filter').value;
+  const role = store.currentUser.role;
+  store.orders.filter(o => filter === 'all' || o.sector === filter).forEach(o => {
+    const isExpanded = expandedOrderId === o.id;
+    const statusColor = o.status === 'pending' ? 'yellow' : (o.status === 'route' ? 'blue' : 'green');
+    const collectedText = o.collected != null ? `<br><span class="text-[10px] font-semibold ${o.collected < o.total ? 'text-red-500' : 'text-green-600'}">Cobrado: $${o.collected.toFixed(2)}</span>` : '';
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50 transition';
+    tr.innerHTML = `
+      <td class="p-3"><button onclick="toggleClientDetail(${o.id})" class="text-left group w-full"><div class="font-bold group-hover:text-blue-600">#${o.id}</div><div class="text-xs text-gray-500 underline decoration-dotted">${o.client_name}</div></button></td>
+      <td class="p-3 text-xs font-semibold text-blue-600">${o.sector}</td>
+      <td class="p-3 font-bold">$${o.total.toFixed(2)}${collectedText}</td>
+      <td class="p-3"><span class="bg-${statusColor}-100 text-${statusColor}-700 px-2 py-1 rounded text-xs uppercase">${o.status}</span></td>
+      <td class="p-3">
+        <button onclick="openGoogleRoute(${o.id})" class="text-blue-500 mr-2"><i class="fa-brands fa-google"></i></button>
+        <button onclick="openWazeRoute(${o.id})" class="text-cyan-500"><i class="fa-solid fa-diamond-turn-right"></i></button>
+      </td>
+      <td class="p-3 text-right">
+        ${role === 'repartidor' && o.status === 'route' ? `<button onclick="openDeliverModal(${o.id})" class="text-green-600 text-xs font-bold">Entregar</button>` : ''}
+        ${role === 'repartidor' && o.status === 'pending' ? `<button onclick="takeRoute(${o.id})" class="text-blue-600 text-xs font-bold">Tomar</button>` : ''}
+      </td>`;
+    tb.appendChild(tr);
+    const d = document.createElement('tr');
+    d.className = `${isExpanded ? '' : 'hidden'} bg-blue-50/60`;
+    d.innerHTML = `<td colspan="6" class="p-3 pt-0"><div class="bg-white rounded-xl border border-blue-200 p-4 shadow-sm">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+        <div><p class="text-xs text-gray-400 uppercase font-semibold">Nombre</p><p class="font-bold">${o.client_name}</p><p class="text-xs text-gray-400">${o.client_code || ''}</p></div>
+        <div><p class="text-xs text-gray-400 uppercase font-semibold">Dirección</p><p class="font-bold">${o.address}</p><p class="text-xs text-gray-400">${o.sector}</p></div>
+        <div><p class="text-xs text-gray-400 uppercase font-semibold">Teléfono</p><a href="tel:${String(o.phone||'').replace(/\s/g,'')}" class="font-bold text-green-600">${o.phone || '—'}</a></div>
+      </div>
+      <div class="flex flex-wrap gap-3 pt-3 border-t">
+        <button onclick="openWazeRoute(${o.id})" class="bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Waze</button>
+        <button onclick="openGoogleRoute(${o.id})" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Google Maps</button>
+      </div></div></td>`;
+    tb.appendChild(d);
+  });
+}
+function filterOrders() { renderOrders(); }
+async function takeRoute(id) {
+  await api(`/api/orders/${id}`, 'PUT', {status: 'route', assigned_to: store.currentUser.id});
+  const o = await api('/api/orders'); store.orders = o || []; renderOrders();
+  addActivity(`${store.currentUser.label} tomó el pedido #${id}`, 'blue');
+}
+function openDeliverModal(id) {
+  const order = store.orders.find(o => o.id === id);
+  if (!order) return;
+  deliverOrderId = id;
+  document.getElementById('deliver-client').innerText = order.client_name;
+  document.getElementById('deliver-detail').innerText = `${order.sector}`;
+  document.getElementById('deliver-total').value = '$' + order.total.toFixed(2);
+  document.getElementById('deliver-collected').value = order.total;
+  openModal('deliver-modal');
+}
+async function confirmDelivery() {
+  if (deliverOrderId == null) return;
+  const collected = parseFloat(document.getElementById('deliver-collected').value);
+  if (isNaN(collected)) { alert('Escribe el valor cobrado'); return; }
+  const result = await api(`/api/orders/${deliverOrderId}`, 'PUT', { status: 'delivered', collected: collected });
+  if (result && result.success) {
+    const o = await api('/api/orders'); store.orders = o || [];
+    renderOrders(); updateStats(); closeModal('deliver-modal');
+    addActivity(`Entrega #${deliverOrderId} completada. Cobrado: $${collected.toFixed(2)}`, 'green');
+  }
+  deliverOrderId = null;
+}
+
+// ==================== NUEVO PEDIDO (CORREGIDO) ====================
+function openNewOrderModal() {
+  // Verificar zonas
+  if (store.sectors.length === 0) {
+    alert('No hay zonas creadas. Ve a "Zonas" y crea al menos una antes de hacer pedidos.');
+    return;
+  }
+  
+  const sel = document.getElementById('new-product');
+  sel.innerHTML = '';
+  const avail = store.inventory.filter(i => i.stock > 0 && !i.hidden);
+  
+  if (avail.length === 0) {
+    // Abrir igual el modal pero mostrar mensaje dentro
+    openModal('order-modal');
+    alert('⚠️ No hay productos disponibles.\nVe a INVENTARIO y agrega productos primero.');
+    document.getElementById('new-product').innerHTML = '<option value="">-- Sin productos --</option>';
+    return;
+  }
+  
+  avail.forEach(i => { 
+    sel.innerHTML += `<option value="${i.id}" data-price="${i.price}">${i.name} ($${i.price}) - Stock: ${i.stock}</option>`; 
+  });
+  
+  populateCustomerSelect();
+  document.getElementById('order-client-search').value = '';
+  document.getElementById('new-client').value = '';      // ✅ ID correcto
+  document.getElementById('new-client-name').value = '';
+  document.getElementById('new-client-address').value = '';
+  document.getElementById('new-client-phone').value = '';
+  loadSectorSelects();
+  updatePricePreview();
+  openModal('order-modal');
+}
+
+function populateCustomerSelect() {
+  const sel = document.getElementById('new-customer-select');
+  sel.innerHTML = '<option value="">-- Nuevo cliente --</option>';
+  store.customers.forEach(c => {
+    sel.innerHTML += `<option value="${c.id}" data-code="${c.code}" data-name="${c.name}" data-address="${c.address}" data-phone="${c.phone}" data-sector="${c.sector}">${c.code} | ${c.name}</option>`;
+  });
+}
+function filterCustomerSelect() {
+  const search = document.getElementById('order-client-search').value.toLowerCase();
+  const sel = document.getElementById('new-customer-select');
+  for (let i = 0; i < sel.options.length; i++) {
+    sel.options[i].style.display = sel.options[i].text.toLowerCase().includes(search) ? "" : "none";
+  }
+}
+
+// ✅ CORREGIDO: ahora usa los IDs correctos del HTML
+function fillOrderFromCustomer() {
+  const sel = document.getElementById('new-customer-select');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  document.getElementById('new-client').value = opt.dataset.code;        // ✅ Era new-client-code
+  document.getElementById('new-client-name').value = opt.dataset.name;
+  document.getElementById('new-client-address').value = opt.dataset.address;
+  document.getElementById('new-client-phone').value = opt.dataset.phone || '';
+  document.getElementById('new-sector').value = opt.dataset.sector;
+}
+
+function updatePricePreview() {
+  const sel = document.getElementById('new-product');
+  if (!sel.options.length) return;
+  const price = sel.options[sel.selectedIndex]?.dataset.price || 0;
+  const qty = document.getElementById('new-qty').value;
+  document.getElementById('new-price').value = '$' + (price * qty).toFixed(2);
+}
+
+async function handleCreateOrder(e) {
+  e.preventDefault();
+  const prodId = document.getElementById('new-product').value;
+  if (!prodId) { alert('Selecciona un producto'); return; }
+  
+  const qty = parseInt(document.getElementById('new-qty').value);
+  const product = store.inventory.find(p => p.id == prodId);
+  if (!product) { alert('Producto no encontrado'); return; }
+  
+  const sector = document.getElementById('new-sector').value;
+  if (!sector) { alert('Selecciona una zona'); return; }
+  
+  if (product.stock < qty) { alert(`Stock insuficiente. Disponible: ${product.stock}`); return; }
+  
+  const base = SECTOR_COORDS[sector] || BOGOTA_CENTER;
+  const payload = {
+    client_code: document.getElementById('new-client').value,
+    client_name: document.getElementById('new-client-name').value,
+    address: document.getElementById('new-client-address').value,
+    phone: document.getElementById('new-client-phone').value,
+    sector: sector, product_id: prodId, qty: qty,
+    total: product.price * qty,
+    coords_lat: base[0] + (Math.random()-0.5)*0.01,
+    coords_lng: base[1] + (Math.random()-0.5)*0.01
+  };
+  const res = await api('/api/orders', 'POST', payload);
+  if (res && res.success) {
+    closeModal('order-modal');
+    const [o, i] = await Promise.all([api('/api/orders'), api('/api/inventory')]);
+    store.orders = o || []; store.inventory = i || [];
+    renderAll();
+    addActivity(`Pedido creado para ${payload.client_name} en ${sector}`, 'blue');
+  } else { alert('Error creando el pedido'); }
+}
+
+// ==================== INVENTARIO ====================
+function renderInventory() {
+  const g = document.getElementById('inventory-grid');
+  if (!g) return;
+  g.innerHTML = '';
+  store.inventory.filter(i => !i.is_water).forEach(i => {
+    const isHidden = i.hidden === 1;
+    const isOut = i.stock <= 0;
+    const badge = isHidden ? '<span class="absolute top-1 right-1 text-[10px] bg-gray-800 text-white px-1 rounded">OCULTO</span>' : (isOut ? '<span class="absolute top-1 right-1 text-[10px] bg-red-600 text-white px-1 rounded">AGOTADO</span>' : '');
+    g.innerHTML += `<div class="bg-white p-3 rounded border text-center relative ${isHidden ? 'opacity-50' : ''}">
+      ${badge}
+      <div class="font-bold text-sm truncate">${i.name}</div>
+      <div class="text-blue-600 font-bold">$${i.price}</div>
+      <div class="text-xs text-gray-500">Stock: ${i.stock}</div>
+      <div class="flex gap-1 mt-2">
+        <button onclick="openProductModal(${i.id})" class="flex-1 text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded"><i class="fa-solid fa-pen"></i></button>
+        <button onclick="toggleHide(${i.id})" class="flex-1 text-xs bg-gray-100 px-2 py-1 rounded"><i class="fa-solid fa-eye${isHidden ? '' : '-slash'}"></i></button>
+      </div>
+    </div>`;
+  });
+  const w = store.inventory.find(p => p.is_water);
+  if (w) document.getElementById('w-stock-sync').innerText = w.stock;
+}
+async function toggleHide(id) {
+  const item = store.inventory.find(i => i.id === id);
+  if (!item) return;
+  const newState = item.hidden === 1 ? 0 : 1;
+  await api(`/api/inventory/${id}`, 'PUT', { hidden: newState });
+  item.hidden = newState;
+  renderInventory();
+  addActivity(`Producto "${item.name}" ${newState ? 'ocultado' : 'mostrado'}`, 'indigo');
+}
+function calcWater() {
+  const c = parseInt(document.getElementById('w-canastas').value) || 0;
+  const k = parseInt(document.getElementById('w-cajas').value) || 0;
+  const s = parseInt(document.getElementById('w-sueltas').value) || 0;
+  document.getElementById('w-total').innerText = (c * 5) + (k * 5) + s;
+}
+async function saveWaterCount() {
+  const total = parseInt(document.getElementById('w-total').innerText) || 0;
+  if (total <= 0) { alert('El conteo es 0. Escribe las cantidades primero.'); return; }
+  const payload = {
+    canastas: parseInt(document.getElementById('w-canastas').value) || 0,
+    cajas: parseInt(document.getElementById('w-cajas').value) || 0,
+    sueltas: parseInt(document.getElementById('w-sueltas').value) || 0,
+    per_canasta: 5, total, user_id: store.currentUser.id
+  };
+  const res = await api('/api/water-counts', 'POST', payload);
+  if (res && res.success) {
+    document.getElementById('w-canastas').value = 0;
+    document.getElementById('w-cajas').value = 0;
+    document.getElementById('w-sueltas').value = 0;
+    document.getElementById('w-total').innerText = 0;
+    const i = await api('/api/inventory'); if (i) store.inventory = i;
+    renderInventory(); updateStats();
+    addActivity(`Conteo de agua guardado: ${total} bolsas`, 'blue');
+    alert(`Conteo guardado. Stock de agua actualizado a ${total} bolsas.`);
+  } else { alert('Error al guardar el conteo'); }
+}
+function openProductModal(id = null) {
+  if (id) {
+    const item = store.inventory.find(i => i.id === id);
+    if (!item) return;
+    document.getElementById('product-modal-title').innerText = item.is_water ? 'Editar Bolsas de Agua' : 'Editar Producto';
+    document.getElementById('prod-edit-id').value = item.id;
+    document.getElementById('prod-name').value = item.name;
+    document.getElementById('prod-price').value = item.price;
+    document.getElementById('prod-stock').value = item.stock;
+    document.getElementById('prod-hidden').checked = item.hidden === 1;
+    document.getElementById('prod-stock').disabled = !!item.is_water;
+  } else {
+    document.getElementById('product-modal-title').innerText = 'Nuevo Producto';
+    document.getElementById('prod-edit-id').value = '';
+    document.getElementById('prod-name').value = '';
+    document.getElementById('prod-price').value = '';
+    document.getElementById('prod-stock').value = '';
+    document.getElementById('prod-hidden').checked = false;
+    document.getElementById('prod-stock').disabled = false;
+  }
+  openModal('product-modal');
+}
+async function handleSaveProduct(e) {
+  e.preventDefault();
+  const id = document.getElementById('prod-edit-id').value;
+  const name = document.getElementById('prod-name').value;
+  const price = parseFloat(document.getElementById('prod-price').value);
+  const stock = parseInt(document.getElementById('prod-stock').value);
+  const hidden = document.getElementById('prod-hidden').checked ? 1 : 0;
+  const finalHidden = (stock <= 0) ? 1 : hidden;
+  let result;
+  if (id) {
+    const item = store.inventory.find(p => p.id == id);
+    if (item && item.is_water) {
+      result = await api(`/api/inventory/${id}`, 'PUT', { name, price });
+    } else {
+      result = await api(`/api/inventory/${id}`, 'PUT', { name, price, stock, hidden: finalHidden });
+    }
+  } else {
+    result = await api('/api/inventory', 'POST', { name, price, stock, hidden: finalHidden, is_water: 0 });
+  }
+  if (result && result.success) {
+    const invData = await api('/api/inventory');
+    if (invData) store.inventory = invData;
+    closeModal('product-modal');
+    renderInventory();
+    addActivity(id ? `Producto "${name}" actualizado` : `Producto "${name}" añadido`, 'green');
+  } else { alert('Error al guardar el producto'); }
+}
+
+// ==================== USUARIOS ====================
+function renderUsers() {
+  const d = document.getElementById('users-list');
+  if (!d) return;
+  let html = `<div class="flex justify-end mb-3"><button onclick="openUserModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-user-plus mr-2"></i>Nuevo Usuario</button></div>`;
+  html += '<ul class="space-y-2">' + store.users.map(u => `
+    <li class="flex justify-between items-center border-b pb-2">
+      <span>${u.label} (${u.role}) <span class="text-xs text-gray-400">@${u.username}</span>
+      <span class="ml-2 text-[10px] px-2 py-1 rounded ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}">${u.active ? 'Activo' : 'Inactivo'}</span></span>
+      <button onclick="toggleUserActive(${u.id}, ${u.active})" class="text-xs ${u.active ? 'text-red-500' : 'text-green-600'} font-bold">${u.active ? 'Desactivar' : 'Activar'}</button>
+    </li>`).join('') + '</ul>';
+  d.innerHTML = html;
+}
+function openUserModal() {
+  const username = prompt('Usuario (login):'); if (!username) return;
+  const password = prompt('Contraseña:'); if (!password) return;
+  const role = prompt('Rol (supervisor / preventista / repartidor):', 'repartidor'); if (!role) return;
+  const label = prompt('Nombre visible:', username) || username;
+  api('/api/users', 'POST', { username, password, role, label, avatar: '👤' }).then(async res => {
+    if (res && res.success) { 
+      const u = await api('/api/users'); store.users = u || []; renderUsers(); 
+      alert('Usuario creado'); 
+    } else alert('Error al crear usuario');
+  });
+}
+async function toggleUserActive(id, current) {
+  await api(`/api/users/${id}`, 'PUT', { active: current ? 0 : 1 });
+  const u = await api('/api/users'); store.users = u || []; renderUsers();
+  addActivity(`Usuario ${current ? 'desactivado' : 'activado'}`, 'indigo');
+}
+
+// ==================== MAPA ====================
+function initMap() {
+  if (map) { map.invalidateSize(); return; }
+  map = L.map('map').setView(BOGOTA_CENTER, 13);
+  L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=es', { attribution: '© Google Maps', maxZoom: 20 }).addTo(map);
+  if (store.gps) {
+    markerDriver = L.marker([store.gps.driverLat, store.gps.driverLng]).addTo(map)
+      .bindPopup('<b>🏍️ Repartidor Activo</b><br>Bogotá D.C.');
+  }
+  store.orders.forEach(o => {
+    if (o.coords_lat == null) return;
+    const color = o.status === 'delivered' ? 'green' : (o.status === 'route' ? 'blue' : 'red');
+    L.circleMarker([o.coords_lat, o.coords_lng], { radius: 8, fillColor: color, color: '#fff', fillOpacity: 0.8 }).addTo(map)
+      .bindPopup(`<b>${o.client_name}</b><br>Pedido #${o.id}<br>${o.address || ''}<br>Zona: ${o.sector}`);
+  });
+}
+
+// ==================== MODALES ====================
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+
+// ==================== GRÁFICA ====================
+function initChart() {
+  const canvas = document.getElementById('salesChart');
+  if (!canvas) return;
+  const existing = Chart.getChart(canvas);
+  if (existing) existing.destroy();
+  const data = [0, 0, 0, 0, 0, 0, 0];
+  store.orders.forEach(o => {
+    const t = orderDate(o);
+    if (!t) return;
+    const idx = (bogotaNow(new Date(t)).getDay() + 6) % 7;
+    data[idx] += o.total;
+  });
+  new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'], datasets: [{ label: 'Ventas ($)', data: data, backgroundColor: '#3b82f6' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+// ==================== PDF ====================
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Reporte Semanal de Ventas", 14, 22);
+  doc.setFontSize(11);
+  doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 30);
+  doc.text(`Generado por: ${store.currentUser.label}`, 14, 36);
+  const tableRows = store.orders.map(o => [
+    o.id, o.client_name, o.sector, `$${o.total.toFixed(2)}`,
+    o.collected != null ? `$${o.collected.toFixed(2)}` : '—',
+    o.status
+  ]);
+  doc.autoTable({
+    head: [["ID", "Cliente", "Zona", "Total", "Cobrado", "Estado"]],
+    body: tableRows,
+    startY: 50
+  });
+  const finalY = doc.lastAutoTable.finalY + 10;
+  const totalSales = store.orders.reduce((a, b) => a + b.total, 0);
+  const totalCollected = store.orders.reduce((a, b) => a + (b.collected != null ? b.collected : 0), 0);
+  doc.text(`Total de pedidos: ${store.orders.length}`, 14, finalY);
+  doc.text(`Ingresos estipulados: $${totalSales.toFixed(2)}`, 14, finalY + 8);
+  doc.text(`Total cobrado real: $${totalCollected.toFixed(2)}`, 14, finalY + 16);
+  doc.save("reporte_semanal.pdf");
+  addActivity('Reporte PDF descargado', 'indigo');
+}
+</script>
+</body>
+</html>
