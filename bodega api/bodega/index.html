@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BODEGA Pro — Catálogo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f3f4f6;}
+.fade-in{animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+#toast{opacity:0;pointer-events:none;transition:opacity .3s ease;}
+</style>
+</head>
+<body class="text-gray-800 min-h-screen">
+
+<!-- MENSAJE FLOTANTE -->
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-sm font-bold text-white max-w-sm text-center" style="opacity:0;pointer-events:none;transition:opacity .3s ease;"></div>
+
+<!-- HEADER -->
+<header class="bg-blue-600 text-white sticky top-0 z-40 shadow">
+<div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center gap-2">
+<div class="flex items-center gap-2"><div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center"><i class="fa-solid fa-store"></i></div><span class="font-bold text-lg">BODEGA<span class="text-cyan-300">Pro</span></span></div>
+<div class="flex items-center gap-2">
+<button onclick="openCart()" class="relative bg-white text-blue-700 px-3 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-cart-shopping mr-1"></i><span class="hidden sm:inline">Carrito</span><span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">0</span></button>
+<button onclick="showAuth('login')" class="bg-white/10 border border-white/30 px-3 py-2 rounded-lg text-sm"><i class="fa-solid fa-right-to-bracket mr-1"></i><span class="hidden sm:inline">Entrar</span></button>
+<button id="btn-register" onclick="showAuth('register')" class="bg-cyan-500 px-3 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-user-plus mr-1"></i><span class="hidden sm:inline">Registrarse</span></button>
+</div>
+</div>
+</header>
+
+<div class="bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+<div class="max-w-5xl mx-auto px-4 py-8 text-center">
+<h1 class="text-2xl sm:text-3xl font-bold">Catálogo de Productos</h1>
+<p class="text-blue-100 text-sm mt-1">Mira los precios sin registrarte · Regístrate para confirmar tu pedido · Entregas en Bosa</p>
+</div>
+</div>
+
+<main class="max-w-5xl mx-auto px-4 py-6">
+<div id="products-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+<p id="empty-products" class="hidden text-center text-gray-500 py-10">Aún no hay productos disponibles.</p>
+</main>
+
+<footer class="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-gray-400">
+<a href="admin.html" class="underline hover:text-gray-600"><i class="fa-solid fa-lock mr-1"></i>Acceso interno (personal)</a>
+</footer>
+
+<!-- MODAL LOGIN / REGISTRO -->
+<div id="auth-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+<div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg" id="auth-title">Iniciar sesión</h3><button onclick="closeModal('auth-modal')" class="text-gray-400"><i class="fa-solid fa-times text-xl"></i></button></div>
+<!-- LOGIN -->
+<form id="auth-login" onsubmit="doLogin(event)" class="space-y-3">
+<input type="email" id="login-email" placeholder="Correo" required class="w-full border p-2 rounded">
+<input type="password" id="login-pass" placeholder="Contraseña" required class="w-full border p-2 rounded">
+<button class="w-full bg-blue-600 text-white py-2 rounded font-bold">Entrar</button>
+<p class="text-xs text-center text-gray-500">¿Nuevo? <button type="button" onclick="showAuth('register')" class="text-blue-600 font-bold">Regístrate aquí</button></p>
+</form>
+<!-- REGISTRO -->
+<form id="auth-register" onsubmit="doRegister(event)" class="space-y-3 hidden">
+<input type="text" id="reg-name" placeholder="Nombre del negocio" required class="w-full border p-2 rounded">
+<input type="tel" id="reg-phone" placeholder="Teléfono" required class="w-full border p-2 rounded">
+<input type="text" id="reg-address" placeholder="Dirección de entrega" required class="w-full border p-2 rounded">
+<select id="reg-sector" class="w-full border p-2 rounded">
+<option>Bosa Recreo y San Bernardino</option><option>Parques de Bogotá</option><option>Bosa La Libertad (Escocia)</option><option>Bosa Centro</option><option>Atalayas y Alameda del Río</option><option>Bosa Porvenir y Santa Fe</option>
+</select>
+<input type="email" id="reg-email" placeholder="Correo" required class="w-full border p-2 rounded">
+<input type="password" id="reg-pass" placeholder="Contraseña" required class="w-full border p-2 rounded">
+<button class="w-full bg-cyan-500 text-white py-2 rounded font-bold">Registrarme</button>
+<p class="text-xs text-center text-gray-500">¿Ya tienes cuenta? <button type="button" onclick="showAuth('login')" class="text-blue-600 font-bold">Inicia sesión</button></p>
+</form>
+</div>
+</div>
+
+<!-- MODAL CARRITO -->
+<div id="cart-modal" class="fixed inset-0 bg-black/50 z-[5000] hidden items-center justify-center p-4">
+<div class="bg-white rounded-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+<div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Mi pedido</h3><button onclick="closeModal('cart-modal')" class="text-gray-400"><i class="fa-solid fa-times text-xl"></i></button></div>
+<div id="cart-items" class="space-y-3 mb-4"></div>
+<div class="flex justify-between font-bold border-t pt-3 mb-4"><span>Total</span><span id="cart-total">$0.00</span></div>
+<div class="flex gap-2">
+<button onclick="closeModal('cart-modal')" class="flex-1 border py-2 rounded">Seguir viendo</button>
+<button onclick="checkout()" class="flex-1 bg-green-600 text-white py-2 rounded font-bold">Confirmar pedido</button>
+</div>
+</div>
+</div>
+
+<script>
+const API_URL = "http://localhost:3000";
+let cart = [];
+let productsCache = [];
+let customer = JSON.parse(localStorage.getItem('bodega_customer') || 'null');
+
+async function api(endpoint, method='GET', data=null){
+try{
+const opts={method, headers:{'Content-Type':'application/json'}};
+if(data) opts.body=JSON.stringify(data);
+const res=await fetch(API_URL+endpoint, opts);
+return await res.json();
+}catch(e){ console.error(e); return null; }
+}
+
+function showToast(msg, type){
+const t=document.getElementById('toast');
+t.innerText=msg;
+t.style.background = type==='ok' ? '#16a34a' : (type==='warn' ? '#f59e0b' : '#dc2626');
+t.style.opacity='1';
+clearTimeout(window.__toastH);
+window.__toastH=setTimeout(()=>{ t.style.opacity='0'; }, 2600);
+}
+
+async function loadProducts(){
+productsCache = (await api('/api/catalog/products')) || [];
+const g=document.getElementById('products-grid'); g.innerHTML='';
+if(!productsCache.length){ document.getElementById('empty-products').classList.remove('hidden'); return; }
+productsCache.forEach(p=>{
+g.innerHTML += `<div class="bg-white rounded-xl border p-4 flex flex-col fade-in">
+<div class="text-3xl mb-2">${'📦'}</div>
+<h3 class="font-bold text-sm flex-1">${p.name}</h3>
+<p class="text-blue-600 font-bold">$${Number(p.price).toFixed(2)}</p>
+<p class="text-[10px] text-gray-400 mb-2">Disponibles: ${p.stock}</p>
+<button onclick="addToCart(${p.id})" class="bg-blue-600 text-white rounded-lg py-2 text-sm font-bold"><i class="fa-solid fa-cart-plus mr-1"></i>Agregar</button>
+</div>`;
+});
+}
+
+function addToCart(id){
+const p=productsCache.find(x=>x.id===id); if(!p) return;
+const item=cart.find(x=>x.id===id);
+if(item) item.qty++; else cart.push({id:p.id, name:p.name, price:Number(p.price), qty:1});
+updateCartCount();
+if(customer) showToast(`✅ "${p.name}" agregado al carrito`, 'ok');
+else showToast(`🛒 "${p.name}" agregado. Regístrate para completar tu pedido`, 'warn');
+}
+
+function updateCartCount(){ document.getElementById('cart-count').innerText = cart.reduce((a,b)=>a+b.qty,0); }
+
+function openCart(){ renderCart(); openModal('cart-modal'); }
+
+function renderCart(){
+const box=document.getElementById('cart-items'); box.innerHTML='';
+if(!cart.length){ box.innerHTML='<p class="text-sm text-gray-500 text-center py-4">Tu carrito está vacío.</p>'; }
+cart.forEach(i=>{
+box.innerHTML += `<div class="flex justify-between items-center border-b pb-2">
+<div><p class="text-sm font-bold">${i.name}</p><p class="text-xs text-gray-500">$${i.price.toFixed(2)} c/u</p></div>
+<div class="flex items-center gap-2">
+<button onclick="changeQty(${i.id},-1)" class="w-7 h-7 bg-gray-200 rounded font-bold">-</button>
+<span class="text-sm font-bold w-6 text-center">${i.qty}</span>
+<button onclick="changeQty(${i.id},1)" class="w-7 h-7 bg-gray-200 rounded font-bold">+</button>
+</div></div>`;
+});
+document.getElementById('cart-total').innerText = '$'+cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2);
+}
+
+function changeQty(id,d){ const i=cart.find(x=>x.id===id); if(!i) return; i.qty+=d; if(i.qty<=0) cart=cart.filter(x=>x.id!==id); updateCartCount(); renderCart(); }
+
+async function checkout(){
+if(cart.length===0){ showToast('Tu carrito está vacío','warn'); return; }
+if(!customer){
+showToast('⚠️ Debes registrarte o iniciar sesión para completar tu pedido','warn');
+showAuth('register');
+return;
+}
+const total=cart.reduce((a,b)=>a+b.price*b.qty,0);
+const res=await api('/api/catalog/order','POST',{ customer_id:customer.id, customer_name:customer.name, customer_phone:customer.phone, customer_address:customer.address, sector:customer.sector, items:cart, total });
+if(res && res.success){ cart=[]; updateCartCount(); closeModal('cart-modal'); showToast('✅ ¡Pedido enviado! Te lo llevaremos pronto','ok'); }
+else showToast('Error al crear el pedido','err');
+}
+
+function showAuth(mode){
+openModal('auth-modal');
+document.getElementById('auth-login').classList.toggle('hidden', mode!=='login');
+document.getElementById('auth-register').classList.toggle('hidden', mode!=='register');
+document.getElementById('auth-title').innerText = mode==='login' ? 'Iniciar sesión' : 'Crear mi cuenta';
+}
+
+async function doLogin(e){
+e.preventDefault();
+const res=await api('/api/catalog/login','POST',{ email:document.getElementById('login-email').value, password:document.getElementById('login-pass').value });
+if(res && res.success){
+customer=res.customer; localStorage.setItem('bodega_customer', JSON.stringify(customer));
+updateSessionUI(); closeModal('auth-modal'); showToast(`✅ Bienvenido ${customer.name}`,'ok');
+} else showToast('Credenciales inválidas','err');
+}
+
+async function doRegister(e){
+e.preventDefault();
+const payload={ name:document.getElementById('reg-name').value, phone:document.getElementById('reg-phone').value, address:document.getElementById('reg-address').value, sector:document.getElementById('reg-sector').value, email:document.getElementById('reg-email').value, password:document.getElementById('reg-pass').value };
+const res=await api('/api/catalog/register','POST', payload);
+if(res && res.success){
+const login=await api('/api/catalog/login','POST',{ email:payload.email, password:payload.password });
+if(login && login.success){ customer=login.customer; localStorage.setItem('bodega_customer', JSON.stringify(customer)); }
+updateSessionUI(); closeModal('auth-modal'); showToast('✅ Registro exitoso. Ya puedes completar tu pedido','ok');
+} else showToast(res && res.error ? res.error : 'Error al registrar','err');
+}
+
+function updateSessionUI(){
+const btn=document.getElementById('btn-register');
+if(customer){
+btn.innerHTML = `<i class="fa-solid fa-user-check mr-1"></i>${(customer.name||'').split(' ')[0]} · Salir`;
+btn.onclick = logoutCustomer;
+btn.classList.remove('bg-cyan-500'); btn.classList.add('bg-green-600');
+} else {
+btn.innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i><span class="hidden sm:inline">Registrarse</span>`;
+btn.onclick = ()=>showAuth('register');
+btn.classList.remove('bg-green-600'); btn.classList.add('bg-cyan-500');
+}
+}
+function logoutCustomer(){ customer=null; localStorage.removeItem('bodega_customer'); updateSessionUI(); showToast('Sesión cerrada','warn'); }
+
+function openModal(id){ const m=document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+function closeModal(id){ const m=document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+updateSessionUI();
+loadProducts();
+</script>
+</body>
+</html>
