@@ -1,0 +1,15 @@
+D:\bodega api\bodega\InventariosApi.Negocio\bin\Debug\net8.0\InventariosApi.Negocio.deps.json
+D:\bodega api\bodega\InventariosApi.Negocio\bin\Debug\net8.0\InventariosApi.Negocio.dll
+D:\bodega api\bodega\InventariosApi.Negocio\bin\Debug\net8.0\InventariosApi.Negocio.pdb
+D:\bodega api\bodega\InventariosApi.Negocio\bin\Debug\net8.0\InventariosApi.Datos.dll
+D:\bodega api\bodega\InventariosApi.Negocio\bin\Debug\net8.0\InventariosApi.Datos.pdb
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.csproj.AssemblyReference.cache
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.GeneratedMSBuildEditorConfig.editorconfig
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.AssemblyInfoInputs.cache
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.AssemblyInfo.cs
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.csproj.CoreCompileInputs.cache
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\Inventar.30F95F2F.Up2Date
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.dll
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\refint\InventariosApi.Negocio.dll
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\InventariosApi.Negocio.pdb
+D:\bodega api\bodega\InventariosApi.Negocio\obj\Debug\net8.0\ref\InventariosApi.Negocio.dll

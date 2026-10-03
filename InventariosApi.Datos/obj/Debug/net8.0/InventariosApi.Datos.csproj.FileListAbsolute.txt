@@ -1,0 +1,11 @@
+D:\bodega api\bodega\InventariosApi.Datos\bin\Debug\net8.0\InventariosApi.Datos.deps.json
+D:\bodega api\bodega\InventariosApi.Datos\bin\Debug\net8.0\InventariosApi.Datos.dll
+D:\bodega api\bodega\InventariosApi.Datos\bin\Debug\net8.0\InventariosApi.Datos.pdb
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.GeneratedMSBuildEditorConfig.editorconfig
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.AssemblyInfoInputs.cache
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.AssemblyInfo.cs
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.csproj.CoreCompileInputs.cache
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.dll
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\refint\InventariosApi.Datos.dll
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\InventariosApi.Datos.pdb
+D:\bodega api\bodega\InventariosApi.Datos\obj\Debug\net8.0\ref\InventariosApi.Datos.dll
